@@ -147,3 +147,14 @@ class use_of_promo_code(Base):
     id = Column(Integer, primary_key=True)
     promo_id = Column(Integer, ForeignKey('promocodes.id'))
     user_id = Column(Integer, ForeignKey('users.user_id'))
+
+class ChatGame(Base):
+    __tablename__ = 'games_in_chats'
+
+    id = Column(Integer, primary_key=True)
+    game = Column(String)
+    creator = Column(Integer, ForeignKey(User.user_id))
+    invited = Column(Integer, ForeignKey(User.user_id))
+    price = Column(Integer)
+    status = Column(String, default='created') # created rejected completed
+    created_at = Column(DateTime, default=datetime.now())

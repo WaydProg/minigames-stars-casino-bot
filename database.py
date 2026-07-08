@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import sessionmaker, joinedload
 from sqlalchemy import select, update, delete
-from models import Base, User, Transaction, GameStat, GameSetting, UserBet, WithdrawalRequest, CryptobotPayment, Promocode, use_of_promo_code
+from models import Base, User, Transaction, GameStat, GameSetting, UserBet, WithdrawalRequest, CryptobotPayment, Promocode, use_of_promo_code, ChatGame
 from config import GAME_SETTINGS, GAME_COSTS, WIN_MULTIPLIERS
 import asyncio
 import uuid
@@ -199,6 +199,26 @@ class Database:
                     amount=amount,
                     type="deposit",
                     description="Администратор добавил звезды"
+                )
+                session.add(transaction)
+                
+                await session.commit()
+                return user.balance
+        return None
+    
+    async def add_stars_to_user_by_userid(self, user_id: int, amount: int):
+        async with self.async_session() as session:
+            result = await session.execute(select(User).where(User.user_id == user_id))
+            user = result.scalar_one_or_none()
+            
+            if user:
+                user.balance += amount
+                
+                transaction = Transaction(
+                    user_id=user.id,
+                    amount=amount,
+                    type="deposit",
+                    description="Заморозка на время игры"
                 )
                 session.add(transaction)
                 
@@ -631,5 +651,38 @@ class Database:
             
             return True
             
+    async def create_game_chat(self, game, creator, invited, price):
+        """Создание игры в чате"""
+        async with self.async_session() as session:
+            new_game = ChatGame(
+            game=game,
+            creator=creator,
+            invited=invited,
+            price=price
+            )
+            session.add(new_game)
+            await session.commit()
+            
+            return new_game.id
+
+    async def get_chat_game_by_id(self, game_id):
+        async with self.async_session() as session:
+            return await session.scalar(select(ChatGame).where(ChatGame.id == game_id))
+        
+    async def update_chat_game_status(self, game_id, status):
+        async with self.async_session() as session:
+            stmt = (
+                update(ChatGame)
+                .where(ChatGame.id == game_id)
+                .values(status=status)
+                .returning(ChatGame.id)
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            updated = result.scalar()
+            if updated is None:
+                raise ValueError(f'Игра с id {game_id} не найден')
+            return True
+
     # Глобальный экземпляр базы данных
 db = Database()

@@ -1,19 +1,20 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
+from aiogram.enums import ButtonStyle
 from database import db
 
 def main_menu():
     builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text="🎰 Игры"))
-    builder.add(KeyboardButton(text="⭐ Мой баланс"))
-    builder.add(KeyboardButton(text="🎁 Ежедневный бонус"))
-    builder.add(KeyboardButton(text="💫 Пополнить"))
+    builder.row(KeyboardButton(text="🎰 Игры", style=ButtonStyle.SUCCESS))
+    builder.add(KeyboardButton(text="⭐ Мой баланс", style=ButtonStyle.PRIMARY))
+    builder.add(KeyboardButton(text="💫 Пополнить", style=ButtonStyle.PRIMARY))
+    builder.add(KeyboardButton(text="🎉 Ввести промокод", style=ButtonStyle.DANGER))
+    builder.add(KeyboardButton(text="🎁 Ежедневный бонус", style=ButtonStyle.DANGER))
     builder.add(KeyboardButton(text="💰 Вывод"))
     builder.add(KeyboardButton(text="👥 Рефералы")) 
     builder.add(KeyboardButton(text="📊 Статистика"))
     builder.add(KeyboardButton(text="ℹ️ Помощь"))
-    builder.add(KeyboardButton(text="🎉 Ввести промокод"))
-    builder.adjust(2)
+    builder.adjust(1, 2)
     return builder.as_markup(resize_keyboard=True)
 
 def deposit_menu():

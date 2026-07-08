@@ -11,6 +11,7 @@ import asyncio
 import logging
 from handlers.referral import router as referral_router
 from handlers.cryptobot_handler import router as cryptobot_router
+from chat_logic.handlers import router as chat_router
 from aiogram.types import FSInputFile
 from shedulers import scheduler
 from aiogram.fsm.context import FSMContext
@@ -18,6 +19,7 @@ import states as states
 
 
 # Регистрируем роутеры
+dp.include_router(chat_router)
 dp.include_router(game_router)
 dp.include_router(admin_router)
 dp.include_router(payment_router)
@@ -67,7 +69,7 @@ async def start_command(message: Message, state:FSMContext):
             f"""
             🎉 Добро пожаловать в SuperDice BOT!
 
-Ваше приключение в мире азарта и больших выигрышей начинается прямо сейчас! Эти звезды — ваш первый шаг к покорению вершин. Используйте их, чтобы крутануть барабаны на самых горячих слотах и ощутить вкус победы!
+Ваш путь к вершинам начинается здесь и сейчас! Эти звёзды — ваш пропуск в мир игр. Тратьте их на подарки и наслаждайтесь каждой победой!
 
 Не упустите свой шанс! Забирайте звёзды и врывайтесь в игру! Удачи! 🚀
 👇 Нажмите на кнопку ниже для начала игры""" +
@@ -80,7 +82,7 @@ async def start_command(message: Message, state:FSMContext):
             caption=f"""
             🎰 Добро пожаловать назад, чемпион!
 
-🥰 Мы скучали по вашему настрою! Пока вас не было, выигрыш только росли, а новые игры ждали своего звёздного часа. Ваше возвращение — это знак для Фортуны! Готовы покорять новые вершины и сорвать большой куш? Удачи в играх! 
+🥰 Мы скучали по вашему настрою! Пока вас не было, бонусы множились, а новые испытания ждали своего звёздного часа. Ваше возвращение — это знак удачи! Готовы покорять новые вершины и забирать главные призы? Удачи в играх!
             
 💎 Ваш баланс: {user.balance} звезд
 👇 Нажмите на кнопку ниже для начала игры""",
