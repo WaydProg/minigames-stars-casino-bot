@@ -138,12 +138,12 @@ class Promocode(Base):
     name = Column(String)
     code = Column(String)
     reward = Column(Integer)
-    is_avaible = Column(Integer, default=1)
-    avaible_until = Column(DateTime)
+    is_available = Column(Integer, default=1)
+    available_until = Column(String)
 
 class use_of_promo_code(Base):
     __tablename__ = 'use_of_promo_codes'
 
     id = Column(Integer, primary_key=True)
-    reward_id = Column(Integer, ForeignKey('promocodes.id'))
-    user_id = Column(Integer, ForeignKey('users.id'))
+    promo_id = Column(Integer, ForeignKey('promocodes.id'))
+    user_id = Column(Integer, ForeignKey('users.user_id'))

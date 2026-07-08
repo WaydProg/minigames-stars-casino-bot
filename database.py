@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import sessionmaker, joinedload
-from sqlalchemy import select
-from models import Base, User, Transaction, GameStat, GameSetting, UserBet, WithdrawalRequest, CryptobotPayment, Promocode
+from sqlalchemy import select, update, delete
+from models import Base, User, Transaction, GameStat, GameSetting, UserBet, WithdrawalRequest, CryptobotPayment, Promocode, use_of_promo_code
 from config import GAME_SETTINGS, GAME_COSTS, WIN_MULTIPLIERS
 import asyncio
 import uuid
@@ -559,7 +559,7 @@ class Database:
             await session.commit()
             return user.balance
 
-    async def add_promo_to_db(self, name: str, code: str, reward: int, avaible_until: str):
+    async def add_promo_to_db(self, name: str, code: str, reward: int, available_until: str):
         """Добавление прокода в бд"""
         async with self.async_session() as session:
             result = await session.execute(select(Promocode).where(Promocode.code == code))
@@ -571,11 +571,65 @@ class Database:
                 name=name,
                 code=code,
                 reward=reward,
-                avaible_until=avaible_until
+                available_until=available_until
             )
             session.add(promocode)
             await session.commit()
             return True
         
+    async def get_promocodes(self):
+        """Получение всех промокодов"""
+        async with self.async_session() as session:
+            result = await session.execute(select(Promocode))
+            return result.scalars().all()
+    
+    async def get_promocode_by_code(self, code):
+        """Получение конкретного промокода"""
+        async with self.async_session() as session:
+            result = await session.execute(select(Promocode).where(Promocode.code == code))
+            return result.scalar_one_or_none()
+        
+    async def switch_available_promo(self, promo_id):
+        async with self.async_session() as session:
+            stmt = (
+                update(Promocode)
+                .where(Promocode.id == promo_id)
+                .values(is_available=0)
+                .returning(Promocode.id)
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            updated = result.scalar()
+            if updated is None:
+                raise ValueError(f'Промокод с id {promo_id} не найден')
+            return True
+    
+    async def delete_promo(self, promo_id):
+        async with self.async_session() as session:
+            result = await session.get(Promocode, promo_id)
+            
+            if not result:
+                raise ValueError('❌ Промокод не найден')
+            
+            await session.delete(result)
+            await session.commit()
+
+            return True
+        
+    async def add_use_promo(self, user_id, promo_id):
+        async with self.async_session() as session:
+            result = await session.scalar(select(use_of_promo_code).where(use_of_promo_code.promo_id == promo_id and use_of_promo_code.user_id == user_id))
+
+            if result:
+                raise ValueError('❌ Промокод уже применён')
+            
+            session.add(use_of_promo_code(
+                promo_id=promo_id,
+                user_id=user_id
+            ))
+            await session.commit()
+            
+            return True
+            
     # Глобальный экземпляр базы данных
 db = Database()

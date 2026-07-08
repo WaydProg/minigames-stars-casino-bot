@@ -1,5 +1,6 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
+from database import db
 
 def main_menu():
     builder = ReplyKeyboardBuilder()
@@ -11,6 +12,7 @@ def main_menu():
     builder.add(KeyboardButton(text="👥 Рефералы")) 
     builder.add(KeyboardButton(text="📊 Статистика"))
     builder.add(KeyboardButton(text="ℹ️ Помощь"))
+    builder.add(KeyboardButton(text="🎉 Ввести промокод"))
     builder.adjust(2)
     return builder.as_markup(resize_keyboard=True)
 
@@ -152,4 +154,30 @@ def approve_or_cancel():
     builder.add(InlineKeyboardButton(text='✅ Подтвердить создание', callback_data='promo_approve'))
     builder.add(InlineKeyboardButton(text='❌ Отменить создание', callback_data='promo_cancel'))
     builder.adjust(2)
+    return builder.as_markup()
+
+async def show_all_promocodes():
+    builder = InlineKeyboardBuilder()
+    promocodes = await db.get_promocodes()
+
+    promocodes_sorted = sorted(promocodes, key=lambda p: p.is_available, reverse=True)
+
+    for promo in promocodes_sorted:
+        builder.add(
+            InlineKeyboardButton(
+                text=f'{'✅' if promo.is_available else '❌'} {promo.name} | {promo.code}', 
+                callback_data=f'code_{promo.code}'
+                ))
+    
+    builder.adjust(1)
+    return builder.as_markup()
+
+async def code_actions(promo_id, is_available):
+    builder = InlineKeyboardBuilder()
+
+    builder.add(InlineKeyboardButton(text='❌ Отключить', callback_data=f'action_off_{promo_id}')) if is_available else None
+    builder.add(InlineKeyboardButton(text='🗑️ Удалить', callback_data=f'action_delete_{promo_id}'))
+    builder.add(InlineKeyboardButton(text='◀️ Назад', callback_data='admin_back'))
+
+    builder.adjust(1)
     return builder.as_markup()

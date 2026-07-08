@@ -12,6 +12,10 @@ import logging
 from handlers.referral import router as referral_router
 from handlers.cryptobot_handler import router as cryptobot_router
 from aiogram.types import FSInputFile
+from shedulers import scheduler
+from aiogram.fsm.context import FSMContext
+import states as states
+
 
 # Регистрируем роутеры
 dp.include_router(game_router)
@@ -21,7 +25,8 @@ dp.include_router(referral_router)
 dp.include_router(cryptobot_router)
 
 @dp.message(CommandStart())
-async def start_command(message: Message):
+async def start_command(message: Message, state:FSMContext):
+    await state.clear()
     path_to_photo = FSInputFile("photos/SuperDice.png")
     referral_code = None
     if len(message.text.split()) > 1:
@@ -127,6 +132,30 @@ async def daily_bonus_command(message: Message):
             f"Возвращайтесь позже! 🎁"
         )
 
+@dp.message(F.text == '🎉 Ввести промокод')
+async def activate_promocode(message:Message, state:FSMContext):
+    await message.answer('👇 Введите свой промокод')
+
+    await state.set_state(states.ActivatePromocode.code)
+
+@dp.message(states.ActivatePromocode.code, F.text)
+async def process_activate_promocode(message:Message, state:FSMContext):
+    code = message.text
+    promo = await db.get_promocode_by_code(code)
+
+    if promo and promo.is_available == 1:
+        try:
+            await db.add_use_promo(message.from_user.id, promo.id)
+            balance = await db.update_balance(message.from_user.id, promo.reward, 'promocode', f'activate promocode {code}')
+
+            await message.answer(f'🎉 Промокод {code} успешно активирован! \n⭐ Ваш новый баланс - {balance}⭐')
+
+            await state.clear()
+        except ValueError as e:
+            await message.answer(f'{e}')
+    else:
+        await message.answer('❌ Промокод не найден или отключен, попробуйте другой')
+
 # Регистрируем обработчики платежей
 from handlers.payment import pre_checkout_handler, success_payment_handler, pay_support_handler
 
@@ -137,6 +166,7 @@ dp.message.register(pay_support_handler, Command("paysupport"))
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     await db.init_db()
+    scheduler.start()
     await dp.start_polling(bot)
 
 if __name__ == '__main__':

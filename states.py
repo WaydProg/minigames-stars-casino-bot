@@ -6,3 +6,6 @@ class AddPromocode(StatesGroup):
     reward = State()
     avaible_until = State()
     approve = State()
+
+class ActivatePromocode(StatesGroup):
+    code = State()

@@ -429,7 +429,7 @@ async def proces_add_promo_reward(message:Message, state:FSMContext):
 
     await state.update_data(reward=reward)
 
-    await message.answer('Введите дату окончания 👇 \n\nЕсли промокод бессрочный напишите "-"', reply_markup=kb.back_to_admin())
+    await message.answer('Введите дату окончания в формате \n<b>день.месяц.год часы:минуты</b>👇 \n\nЕсли промокод бессрочный напишите "-"', reply_markup=kb.back_to_admin())
 
     await state.set_state(states.AddPromocode.avaible_until)
 
@@ -486,6 +486,54 @@ async def complete_promo(callback:CallbackQuery, state:FSMContext):
     if data == 'cancel':
         await admin_back(callback)
         await state.clear()
+
+@router.callback_query(F.data == 'admin_promocodes')
+async def show_promocodes(callback:CallbackQuery):
+    await callback.answer()
+    await callback.message.edit_text('📋 Список всех промокодов', reply_markup=await kb.show_all_promocodes())
+
+@router.callback_query(F.data.startswith('code_'))
+async def code_info(callback:CallbackQuery):
+    code = callback.data.split('_')[1]
+    code_info = await db.get_promocode_by_code(code)
+
+    await callback.answer()
+    await callback.message.edit_text(f'''📋 {code_info.name} | {code_info.code}
+
+💎 Награда: {code_info.reward}
+🚦 Состояние: {'✅ Включен' if code_info.is_available else '❌ Выключен'}
+🕐 До: {code_info.available_until}
+
+Выберите действие 👇
+''', reply_markup=await kb.code_actions(code_info.id, code_info.is_available))
+    
+@router.callback_query(F.data.startswith('action_'))
+async def actions_coddes(callback:CallbackQuery):
+    action = callback.data.split('_')[1]
+    promo_id = callback.data.split('_')[2]
+
+    if action == 'off':
+        try:
+            await db.switch_available_promo(promo_id)
+            await callback.answer()
+            await callback.message.answer('✅ Промокод успешно отключен')
+
+        except ValueError as e:
+            await callback.answer()
+            await callback.message.answer(f'❌ Ошибка при отключении: {e}')
+
+    if action == 'delete':
+        try:
+            await db.delete_promo(promo_id)
+            await callback.answer()
+            await callback.message.answer('✅ Промокод успешно удалён')
+
+        except ValueError as e:
+            await callback.answer()
+            await callback.message.answer(f'❌ Ошибка при отключении: {e}')
+
+    if action == 'admin_back':
+        await admin_back(callback)
 
 @router.callback_query(F.data == "admin_back")
 async def admin_back(callback: CallbackQuery):
