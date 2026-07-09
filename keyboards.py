@@ -17,6 +17,13 @@ def main_menu():
     builder.adjust(1, 2)
     return builder.as_markup(resize_keyboard=True)
 
+def back():
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text='◀️ Назад', callback_data="back_to_games_list"))
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 def deposit_menu():
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="⭐ 1 звезда - 1⭐", callback_data="deposit_1"))
@@ -30,9 +37,9 @@ def deposit_menu():
     return builder.as_markup()
 
 def cancel_keyboard():
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text="❌ Отмена"))
-    return builder.as_markup(resize_keyboard=True)
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="❌ Отмена", callback_data='cancel_keyboard'))
+    return builder.as_markup()
 
 def withdrawal_approve_keyboard(request_id: int):
     builder = InlineKeyboardBuilder()
@@ -77,7 +84,8 @@ def back_to_admin():
 def back_to_game_menu(game_type: str):
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="🎰 Сыграть еще раз", callback_data=f"game_{game_type}"))
-    return builder.as_markup()
+    builder.add(InlineKeyboardButton(text='◀️ Выбор игры', callback_data='back_to_games_list'))
+    return builder.adjust(1).as_markup()
 
 def back_to_main_menu():
     builder = InlineKeyboardBuilder()

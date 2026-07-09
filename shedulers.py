@@ -1,6 +1,6 @@
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from datetime import datetime
+from datetime import datetime, timedelta
 from database import db
 
 async def switch_available():
@@ -30,6 +30,18 @@ async def switch_available():
     except Exception as e:
         logging.error(f"❌ Критическая ошибка при получении списка промокодов: {e}")
 
+async def switch_available_chat_game_status():
+    all_chat_games = await db.get_all_chat_game()
+    time_now = datetime.now()
+
+    for game in all_chat_games:
+        if game.created_at + timedelta(minutes=5) <= time_now and game.status == 'created':
+            try:
+                await db.update_chat_game_status(game.id, 'rejected')
+                await db.add_stars_to_user_by_userid(game.creator, game.price, 'return', 'Отмена игры')
+            except ValueError as e:
+                logging.error(f'❌ Ошибка при обновлении статуса игры в чате: {e}')
+
 # Создаём планировщик
 scheduler = AsyncIOScheduler()
 
@@ -41,4 +53,13 @@ scheduler.add_job(
     id='switch_available_promo',
     next_run_time=datetime.now(),   # выполнить сразу при старте
     replace_existing=True
+)
+
+
+scheduler.add_job(
+    switch_available_chat_game_status,
+    'interval',
+    minutes=1,
+    id='switch_available_chat_game_status',
+    next_run_time=datetime.now()
 )

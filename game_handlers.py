@@ -145,7 +145,7 @@ async def play_dice(callback: CallbackQuery, setting, bet_amount: int):
         
         await callback.message.answer(
             f"🎲 Выпало: {dice_value}\n😢 К сожалению вы проиграли в этот раз, попробуйте еще, вдруг повезет\n"
-            f"💎 Ваш баланс: {user.balance - bet_amount} звезд"
+            f"💎 Ваш баланс: {user.balance} звезд"
         )
 
 async def play_dart(callback: CallbackQuery, setting, bet_amount: int):
@@ -418,7 +418,8 @@ async def show_games(message: Message):
     await message.answer_photo(photo, caption="🎮 Выберите игру:", reply_markup=kb.games_menu())
 
 @router.callback_query(F.data == 'back_to_games_list')
-async def show_games2(callback:CallbackQuery):
+async def show_games2(callback:CallbackQuery, state:FSMContext):
+    await state.clear()
     await callback.message.answer_photo(photo, caption="🎮 Выберите игру:", reply_markup=kb.games_menu())
     await callback.answer()
 
@@ -548,12 +549,13 @@ async def start_change_bet(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
-@router.message(StateFilter(BetState.waiting_for_bet), F.text == "❌ Отмена")
-async def cancel_bet_change(message: Message, state: FSMContext):
+@router.callback_query(StateFilter(BetState.waiting_for_bet), F.data == "cancel_keyboard")
+async def cancel_bet_change(callback:CallbackQuery, state: FSMContext):
     data = await state.get_data()
     game_type = data.get('game_type', 'dice')
     await state.clear()
-    await message.answer(
+    await callback.answer()
+    await callback.message.answer(
         "❌ Изменение ставки отменено",
         reply_markup=kb.back_to_game_menu(game_type)
     )

@@ -206,7 +206,7 @@ class Database:
                 return user.balance
         return None
     
-    async def add_stars_to_user_by_userid(self, user_id: int, amount: int):
+    async def add_stars_to_user_by_userid(self, user_id: int, amount: int, type: str, description: str):
         async with self.async_session() as session:
             result = await session.execute(select(User).where(User.user_id == user_id))
             user = result.scalar_one_or_none()
@@ -217,8 +217,8 @@ class Database:
                 transaction = Transaction(
                     user_id=user.id,
                     amount=amount,
-                    type="deposit",
-                    description="Заморозка на время игры"
+                    type=type,
+                    description=description
                 )
                 session.add(transaction)
                 
@@ -668,6 +668,10 @@ class Database:
     async def get_chat_game_by_id(self, game_id):
         async with self.async_session() as session:
             return await session.scalar(select(ChatGame).where(ChatGame.id == game_id))
+        
+    async def get_all_chat_game(self):
+        async with self.async_session() as session:
+            return await session.scalars(select(ChatGame))
         
     async def update_chat_game_status(self, game_id, status):
         async with self.async_session() as session:

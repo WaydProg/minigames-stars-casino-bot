@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from config import dp, bot
 from database import db
@@ -15,6 +15,7 @@ from chat_logic.handlers import router as chat_router
 from aiogram.types import FSInputFile
 from shedulers import scheduler
 from aiogram.fsm.context import FSMContext
+from payment_handlers import deposit_command
 import states as states
 
 
@@ -27,67 +28,73 @@ dp.include_router(referral_router)
 dp.include_router(cryptobot_router)
 
 @dp.message(CommandStart())
-async def start_command(message: Message, state:FSMContext):
+async def start_command(message: Message, state:FSMContext, command: CommandStart):
     await state.clear()
-    path_to_photo = FSInputFile("photos/SuperDice.png")
-    referral_code = None
-    if len(message.text.split()) > 1:
-        referral_code = message.text.split()[1].strip()
-    
+
+    args = command.args
     user = await db.get_user(message.from_user.id)
-    
-    if not user:
-        # Если есть реферальный код, находим реферера
-        referred_by = None
-        if referral_code:
-            referrer = await db.get_user_by_referral_code(referral_code)
-            if referrer:
-                referred_by = referrer.id
-        
-        user = await db.create_user(
-            message.from_user.id,
-            message.from_user.username,
-            message.from_user.first_name,
-            message.from_user.last_name,
-            referred_by
-        )
-        
-        # Начисляем бонус рефереру
-        if referred_by:
-            await db.add_referral_earnings(referrer.user_id, 10)  # 25 звезд за реферала
-            await bot.send_message(
-                chat_id=referrer.user_id,
-                text=f"🎉 Новый реферал!\n\n"
-                     f"👤 {message.from_user.first_name} присоединился по вашей ссылке\n"
-                     f"💎 Вам начислено 10 звезд\n"
-                     f"📊 Всего рефералов: {referrer.referrals_count + 1}"
-            )
-        
-        await message.answer_photo(
-            path_to_photo,
-            caption=
-            f"""
-            🎉 Добро пожаловать в SuperDice BOT!
 
-Ваш путь к вершинам начинается здесь и сейчас! Эти звёзды — ваш пропуск в мир игр. Тратьте их на подарки и наслаждайтесь каждой победой!
-
-Не упустите свой шанс! Забирайте звёзды и врывайтесь в игру! Удачи! 🚀
-👇 Нажмите на кнопку ниже для начала игры""" +
-            (f"\n🤝 Вы присоединились по реферальной ссылке!" if referral_code else ""),
-            reply_markup=kb.main_menu()
-        )
+    if args == "deposit" and user:
+        await deposit_command(message)
     else:
-        await message.answer_photo(
-            photo=path_to_photo,
-            caption=f"""
-            🎰 Добро пожаловать назад, чемпион!
 
-🥰 Мы скучали по вашему настрою! Пока вас не было, бонусы множились, а новые испытания ждали своего звёздного часа. Ваше возвращение — это знак удачи! Готовы покорять новые вершины и забирать главные призы? Удачи в играх!
+        path_to_photo = FSInputFile("photos/SuperDice.png")
+        referral_code = None
+        if len(message.text.split()) > 1:
+            referral_code = message.text.split()[1].strip()
+        
+        if not user:
+            # Если есть реферальный код, находим реферера
+            referred_by = None
+            if referral_code:
+                referrer = await db.get_user_by_referral_code(referral_code)
+                if referrer:
+                    referred_by = referrer.id
             
-💎 Ваш баланс: {user.balance} звезд
-👇 Нажмите на кнопку ниже для начала игры""",
-            reply_markup=kb.main_menu()
-        )
+            user = await db.create_user(
+                message.from_user.id,
+                message.from_user.username,
+                message.from_user.first_name,
+                message.from_user.last_name,
+                referred_by
+            )
+            
+            # Начисляем бонус рефереру
+            if referred_by:
+                await db.add_referral_earnings(referrer.user_id, 10)  # 25 звезд за реферала
+                await bot.send_message(
+                    chat_id=referrer.user_id,
+                    text=f"🎉 Новый реферал!\n\n"
+                         f"👤 {message.from_user.first_name} присоединился по вашей ссылке\n"
+                         f"💎 Вам начислено 10 звезд\n"
+                         f"📊 Всего рефералов: {referrer.referrals_count + 1}"
+                )
+            
+            await message.answer_photo(
+                path_to_photo,
+                caption=
+                f"""
+                🎉 Добро пожаловать в SuperDice BOT!
+    
+    Ваш путь к вершинам начинается здесь и сейчас! Эти звёзды — ваш пропуск в мир игр. Тратьте их на подарки и наслаждайтесь каждой победой!
+    
+    Не упустите свой шанс! Забирайте звёзды и врывайтесь в игру! Удачи! 🚀
+    👇 Нажмите на кнопку ниже для начала игры""" +
+                (f"\n🤝 Вы присоединились по реферальной ссылке!" if referral_code else ""),
+                reply_markup=kb.main_menu()
+            )
+        else:
+            await message.answer_photo(
+                photo=path_to_photo,
+                caption=f"""
+                🎰 Добро пожаловать назад, чемпион!
+    
+    🥰 Мы скучали по вашему настрою! Пока вас не было, бонусы множились, а новые испытания ждали своего звёздного часа. Ваше возвращение — это знак удачи! Готовы покорять новые вершины и забирать главные призы? Удачи в играх!
+                
+    💎 Ваш баланс: {user.balance} звезд
+    👇 Нажмите на кнопку ниже для начала игры""",
+                reply_markup=kb.main_menu()
+            )
 
 @dp.message(F.text == "⭐ Мой баланс")
 async def show_balance(message: Message):
@@ -136,7 +143,7 @@ async def daily_bonus_command(message: Message):
 
 @dp.message(F.text == '🎉 Ввести промокод')
 async def activate_promocode(message:Message, state:FSMContext):
-    await message.answer('👇 Введите свой промокод')
+    await message.answer('👇 Введите свой промокод', reply_markup=kb.back())
 
     await state.set_state(states.ActivatePromocode.code)
 
