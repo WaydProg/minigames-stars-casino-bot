@@ -1,3 +1,4 @@
+import asyncio
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
@@ -5,6 +6,8 @@ from config import ADMIN_IDS
 from database import db
 from sqlalchemy import select
 from aiogram.fsm.context import FSMContext
+from config import bot
+from aiogram.methods import GetAvailableGifts, SendGift
 
 import states as states
 import keyboards as kb
@@ -45,7 +48,6 @@ async def show_current_settings(message: Message):
 @router.callback_query(F.data == "admin_settings")
 async def game_settings(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("❌ Доступ запрещен")
         return
     
     await callback.message.edit_text(
@@ -56,7 +58,6 @@ async def game_settings(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("setting_"))
 async def edit_game_setting(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("❌ Доступ запрещен")
         return
     
     game_type = callback.data.split("_")[1]
@@ -200,7 +201,6 @@ async def toggle_game(message: Message):
 @router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("❌ Доступ запрещен")
         return
     
     users = await db.get_all_users()
@@ -229,7 +229,6 @@ async def admin_stats(callback: CallbackQuery):
 @router.callback_query(F.data == "admin_users")
 async def admin_users(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("❌ Доступ запрещен")
         return
     
     users = await db.get_all_users()
@@ -257,7 +256,6 @@ async def admin_users(callback: CallbackQuery):
 @router.callback_query(F.data == "admin_add_stars")
 async def admin_add_stars(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("❌ Доступ запрещен")
         return
     
     await callback.message.edit_text(
@@ -394,7 +392,6 @@ async def admin_add_promocode(callback:CallbackQuery, state:FSMContext):
 @router.message(states.AddPromocode.name, F.text)
 async def proces_add_promo_name(message:Message, state:FSMContext):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ Доступ запрещен")
         return
 
     await state.update_data(name=message.text) # Название
@@ -406,7 +403,6 @@ async def proces_add_promo_name(message:Message, state:FSMContext):
 @router.message(states.AddPromocode.code, F.text)
 async def proces_add_promo_code(message:Message, state:FSMContext):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ Доступ запрещен")
         return
     
     await state.update_data(code=message.text) # Промокод
@@ -418,7 +414,6 @@ async def proces_add_promo_code(message:Message, state:FSMContext):
 @router.message(states.AddPromocode.reward, F.text)
 async def proces_add_promo_reward(message:Message, state:FSMContext):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ Доступ запрещен")
         return
     
     try:
@@ -436,7 +431,6 @@ async def proces_add_promo_reward(message:Message, state:FSMContext):
 @router.message(states.AddPromocode.avaible_until, F.text)
 async def proces_add_promo_avaible_until(message:Message, state:FSMContext):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ Доступ запрещен")
         return
     
     if message.text != '-':
@@ -460,7 +454,6 @@ async def proces_add_promo_avaible_until(message:Message, state:FSMContext):
 @router.callback_query(states.AddPromocode.approve, F.data.startswith('promo_'))
 async def complete_promo(callback:CallbackQuery, state:FSMContext):
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("❌ Доступ запрещен")
         return
     
     data = callback.data.split('_')[1]
@@ -489,11 +482,17 @@ async def complete_promo(callback:CallbackQuery, state:FSMContext):
 
 @router.callback_query(F.data == 'admin_promocodes')
 async def show_promocodes(callback:CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    
     await callback.answer()
     await callback.message.edit_text('📋 Список всех промокодов', reply_markup=await kb.show_all_promocodes())
 
 @router.callback_query(F.data.startswith('code_'))
 async def code_info(callback:CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    
     code = callback.data.split('_')[1]
     code_info = await db.get_promocode_by_code(code)
 
@@ -509,6 +508,9 @@ async def code_info(callback:CallbackQuery):
     
 @router.callback_query(F.data.startswith('action_'))
 async def actions_coddes(callback:CallbackQuery):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    
     action = callback.data.split('_')[1]
     promo_id = callback.data.split('_')[2]
 
@@ -538,8 +540,168 @@ async def actions_coddes(callback:CallbackQuery):
 @router.callback_query(F.data == "admin_back")
 async def admin_back(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("❌ Доступ запрещен")
         return
     
     await callback.message.edit_text("👨‍💻 Панель администратора:", reply_markup=kb.admin_menu())
 
+@router.callback_query(F.data == 'mass_message')
+async def mass_message(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    
+    await callback.answer()
+    await callback.message.answer('📣 Отправьте сообщение для рассылки (можно фото с подписью)')
+    await state.set_state(states.MassMessage.message)
+
+@router.message(states.MassMessage.message, F.text)
+async def process_mass_message_text(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    await state.update_data(text=message.text, photo=None, caption=None)
+    await show_mass_preview(message, state)
+
+@router.message(states.MassMessage.message, F.photo)
+async def process_mass_message_photo(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    photo = message.photo[-1]  # самое качественное фото
+    file_id = photo.file_id
+    caption = message.caption or ""
+    await state.update_data(photo=file_id, caption=caption, text=None)
+    await show_mass_preview(message, state)
+
+async def show_mass_preview(message: Message, state: FSMContext):
+    data = await state.get_data()
+    text = data.get('text')
+    photo = data.get('photo')
+    caption = data.get('caption')
+
+    if photo:
+        # Предпросмотр с фото
+        await message.answer_photo(
+            photo=photo,
+            caption=f"📣 <b>Предпросмотр рассылки</b>\n\n{caption}" if caption else "📣 <b>Предпросмотр рассылки</b>",
+            parse_mode="HTML",
+            reply_markup=kb.confirm_mass_message()
+        )
+    else:
+        # Предпросмотр текста
+        preview_text = f"📣 <b>Предпросмотр рассылки</b>\n\n{text or ''}"
+        await message.answer(
+            preview_text,
+            parse_mode="HTML",
+            reply_markup=kb.confirm_mass_message()
+        )
+    
+    await state.set_state(states.MassMessage.confirm)
+
+@router.callback_query(states.MassMessage.confirm, F.data.in_(["mass_approve", "mass_cancel"]))
+async def process_mass_message_confirm(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    
+    await callback.answer()
+    
+    if callback.data == "mass_cancel":
+        await callback.message.edit_text("❌ Рассылка отменена", reply_markup=kb.back_to_admin())
+        await state.clear()
+        return
+    
+    # Подтверждено – начинаем рассылку
+    data = await state.get_data()
+    text = data.get('text')
+    photo = data.get('photo')
+    caption = data.get('caption')
+    
+    if not text and not photo:
+        await callback.message.answer("❌ Нет содержимого для рассылки", reply_markup=kb.back_to_admin())
+        await state.clear()
+        return
+    
+    users = await db.get_all_users()
+    total = len(users)
+    if total == 0:
+        await callback.message.answer("📭 Нет пользователей для рассылки", reply_markup=kb.back_to_admin())
+        await state.clear()
+        return
+    
+    await callback.message.answer(f"⏳ Начинаю рассылку {total} пользователям...")
+    
+    sent = 0
+    failed = 0
+    
+    for user in users:
+        try:
+            if photo:
+                await bot.send_photo(chat_id=user.user_id, photo=photo, caption=caption or "", parse_mode="HTML")
+            else:
+                await bot.send_message(chat_id=user.user_id, text=text or "", parse_mode="HTML")
+            sent += 1
+        except Exception:
+            failed += 1
+        
+        # Обновляем статус каждые 10 сообщений
+        if (sent + failed) % 10 == 0:
+            await callback.message.answer(
+                f"⏳ Отправлено {sent + failed} из {total}... (успешно: {sent}, ошибок: {failed})"
+            )
+        await asyncio.sleep(0.05)  # задержка для соблюдения лимитов Telegram
+    
+    await callback.message.answer(
+        f"✅ Рассылка завершена!\n\n"
+        f"👥 Всего: {total}\n"
+        f"✅ Доставлено: {sent}\n"
+        f"❌ Ошибок: {failed}",
+        reply_markup=kb.back_to_admin()
+    )
+    await state.clear()
+
+
+@router.callback_query(F.data == 'send_gift')
+async def send_gift_username(callback:CallbackQuery, state:FSMContext):
+    await callback.answer()
+    await callback.message.answer('👇 Введите @username пользователя')
+
+    await state.set_state(states.SendGift.username)
+
+@router.message(states.SendGift.username, F.text)
+async def send_gift_text(message:Message, state:FSMContext):
+    await state.update_data(username=message.text[1:])
+
+    await message.answer('👇 Введите комментарий к подарку (или "-")')
+
+    await state.set_state(states.SendGift.msg)
+
+@router.message(states.SendGift.msg, F.text)
+async def proces_send_gift(message:Message, state:FSMContext):
+    await state.update_data(text = (message.text if message.text != '-' else None))
+    gifts = await bot(GetAvailableGifts())
+
+    await message.answer('👇 Выберите подарок для отправки', reply_markup= await kb.list_avaible_gifts(gifts.gifts))
+
+@router.callback_query(F.data.startswith('admgift_'))
+async def send_gift_from_user(callback:CallbackQuery, state:FSMContext):
+    gift_id = callback.data.split('_')[1]
+
+    data = await state.get_data()
+    username = data.get('username')
+    msg = data.get('msg')
+
+    user_id = await db.get_user_by_username(username)
+
+    await callback.answer()
+
+    try:
+
+        await bot.send_gift(
+            user_id=int(user_id.user_id),
+            gift_id=str(gift_id),  
+            text=msg
+        )
+
+        await callback.message.answer(f'✅ Подарок успешно отправлен пользователю: @{username}')
+
+    except Exception as e:
+        await callback.message.answer(f'❌ Ошибка отправки подарка: {e}')

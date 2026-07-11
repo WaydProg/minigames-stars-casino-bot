@@ -9,3 +9,11 @@ class AddPromocode(StatesGroup):
 
 class ActivatePromocode(StatesGroup):
     code = State()
+
+class MassMessage(StatesGroup):
+    message = State()
+    confirm = State()
+
+class SendGift(StatesGroup):
+    username = State()
+    msg = State()

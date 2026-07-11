@@ -61,6 +61,8 @@ def admin_menu():
     builder.add(InlineKeyboardButton(text="💎 Добавить звезды", callback_data="admin_add_stars"))
     builder.add(InlineKeyboardButton(text="🎉 Добавить промокод", callback_data="admin_add_promocode"))
     builder.add(InlineKeyboardButton(text="📋 Список промокодов", callback_data="admin_promocodes"))
+    builder.add(InlineKeyboardButton(text='📣 Сделать общую рассылку', callback_data='mass_message'))
+    builder.add(InlineKeyboardButton(text='🌹 Отправить подарок', callback_data='send_gift'))
     builder.adjust(2)
     return builder.as_markup()
 
@@ -190,3 +192,17 @@ async def code_actions(promo_id, is_available):
 
     builder.adjust(1)
     return builder.as_markup()
+
+def confirm_mass_message():
+    builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text="✅ Отправить", callback_data="mass_approve"))
+    builder.add(InlineKeyboardButton(text="❌ Отмена", callback_data="mass_cancel"))
+    return builder.adjust(1).as_markup()
+
+async def list_avaible_gifts(gifts):
+    builder = InlineKeyboardBuilder()
+
+    for gift in gifts:
+        builder.add(InlineKeyboardButton(text=gift.sticker.emoji, callback_data=f'admgift_{gift.id}'))
+
+    return builder.adjust(2).as_markup()
