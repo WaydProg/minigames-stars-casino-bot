@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import sessionmaker, joinedload
 from sqlalchemy import select, update, delete
-from models import Base, User, Transaction, GameStat, GameSetting, UserBet, WithdrawalRequest, CryptobotPayment, Promocode, use_of_promo_code, ChatGame
+from models import Base, User, Transaction, GameStat, GameSetting, UserBet, WithdrawalRequest, CryptobotPayment, Promocode, use_of_promo_code, ChatGame, ChatGameSetting
 from config import GAME_SETTINGS, GAME_COSTS, WIN_MULTIPLIERS
 import asyncio
 import uuid
@@ -18,10 +18,11 @@ class Database:
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         await self._create_default_settings()
+        await self._create_default_settings_chat()
 
     async def _create_default_settings(self):
         async with self.async_session() as session:
-            games = ['dice', 'dart', 'basketball', 'football', 'bowling', 'slot']
+            games = ['dice', 'dart', 'basketball', 'football', 'bowling', 'slot', 'coin']
             
             for game in games:
                 result = await session.execute(
@@ -37,6 +38,23 @@ class Database:
                         max_bet=GAME_SETTINGS.get("max_bet", 1000),
                         cost=GAME_COSTS.get(game, 5),
                         win_multiplier=WIN_MULTIPLIERS.get(game, 2.0)
+                    ))
+            await session.commit()
+
+    async def _create_default_settings_chat(self):
+        async with self.async_session() as session:
+            games = ['dice', 'darts', 'basket', 'football', 'bowling', 'roulette']
+            
+            for game in games:
+                result = await session.execute(
+                    select(ChatGameSetting).where(ChatGameSetting.game_type == game)
+                )
+                existing = result.scalar_one_or_none()
+                
+                if not existing:
+                    session.add(ChatGameSetting(
+                        game_type=game,
+                        commission=1,
                     ))
             await session.commit()
 
@@ -123,10 +141,29 @@ class Database:
             result = await session.execute(select(GameSetting).where(GameSetting.game_type == game_type))
             setting = result.scalar_one_or_none()
             return setting
+        
+    async def get_chat_game_setting(self, game_type: str):
+        async with self.async_session() as session:
+            result = await session.execute(select(ChatGameSetting).where(ChatGameSetting.game_type == game_type))
+            setting = result.scalar_one_or_none()
+            return setting
 
     async def update_game_setting(self, game_type: str, **kwargs):
         async with self.async_session() as session:
             result = await session.execute(select(GameSetting).where(GameSetting.game_type == game_type))
+            setting = result.scalar_one_or_none()
+            
+            if setting:
+                for key, value in kwargs.items():
+                    if hasattr(setting, key):
+                        setattr(setting, key, value)
+                await session.commit()
+                return setting
+        return None
+    
+    async def update_chat_game_setting(self, game_type: str, **kwargs):
+        async with self.async_session() as session:
+            result = await session.execute(select(ChatGameSetting).where(ChatGameSetting.game_type == game_type))
             setting = result.scalar_one_or_none()
             
             if setting:
@@ -687,6 +724,22 @@ class Database:
             if updated is None:
                 raise ValueError(f'Игра с id {game_id} не найден')
             return True
+
+    async def update_user_banned(self, user_id, ban_unban):
+        async with self.async_session() as session:
+            stmt = (
+                update(User)
+                .where(User.user_id == user_id)
+                .values(banned=ban_unban)
+                .returning(User.user_id)
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            updated = result.scalar()
+            if updated is None:
+                raise ValueError(f'Пользователь с id {user_id} не найден')
+            return True
+        
 
     # Глобальный экземпляр базы данных
 db = Database()

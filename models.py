@@ -23,6 +23,7 @@ class User(Base):
     referral_earnings = Column(Integer, default=0)
     registered_at = Column(DateTime, default=datetime.utcnow)
     last_bonus_at = Column(DateTime)  # Время последнего получения бонуса
+    banned = Column(Integer, default=0)
     
     transactions = relationship("Transaction", back_populates="user")
     game_stats = relationship("GameStat", back_populates="user")
@@ -66,6 +67,14 @@ class GameSetting(Base):
     max_bet = Column(Integer, default=1000)
     cost = Column(Integer, default=5)
     win_multiplier = Column(Float, default=2.0)
+    is_active = Column(Boolean, default=True)
+
+class ChatGameSetting(Base):
+    __tablename__ = 'chat_game_settings'
+    
+    id = Column(Integer, primary_key=True)
+    game_type = Column(String(20), unique=True, nullable=False)
+    commission = Column(Integer, default=1)
     is_active = Column(Boolean, default=True)
 
 class UserBet(Base):

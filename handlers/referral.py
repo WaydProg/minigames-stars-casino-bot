@@ -4,11 +4,14 @@ from aiogram.filters import Command
 from config import bot
 from database import db
 from keyboards import referral_menu, back_to_referral_menu, main_menu, back_to_main_menu
+from aiogram.types import FSInputFile
 import asyncio
 
 import database as datab
 
 router = Router()
+
+referals_photo = FSInputFile("photos/referals.png")
 
 @router.message(F.text == "👥 Рефералы")
 async def referral_command(message: Message):
@@ -16,7 +19,7 @@ async def referral_command(message: Message):
     if not user:
         return
     
-    await message.answer(
+    await message.answer_photo(referals_photo, caption=
         f"👥 Реферальная программа\n\n"
         f"💎 Зарабатывайте звезды за приглашенных друзей!\n\n"
         f"📊 Ваша статистика:\n"
@@ -39,7 +42,7 @@ async def show_my_referrals(callback: CallbackQuery):
     referrals = await db.get_user_referrals(user.id)
     
     if not referrals:
-        await callback.message.edit_text(
+        await callback.message.edit_caption(caption=
             "📊 У вас пока нет рефералов\n\n"
             "Приглашайте друзей и получайте бонусы!\n\n"
             "Ваша реферальная ссылка:\n"
@@ -56,7 +59,7 @@ async def show_my_referrals(callback: CallbackQuery):
         referrals_text += f"\n📈 Всего рефералов: {len(referrals)}"
         referrals_text += f"\n💎 Заработано: {user.referral_earnings} звезд"
         
-        await callback.message.edit_text(
+        await callback.message.edit_caption(caption=
             referrals_text,
             reply_markup=back_to_referral_menu()
         )
@@ -70,7 +73,7 @@ async def show_referral_info(callback: CallbackQuery):
         await callback.answer("❌ Пользователь не найден")
         return
     
-    await callback.message.edit_text(
+    await callback.message.edit_caption(caption=
         f"💎 Реферальная программа\n\n"
         f"🎯 Как это работает:\n"
         f"1. Делитесь своей реферальной ссылкой с друзьями\n"
@@ -97,7 +100,7 @@ async def copy_referral_link(callback: CallbackQuery):
     
     referral_link = f"https://t.me/dicelite_bot?start={user.referral_code}"
     
-    await callback.message.edit_text(
+    await callback.message.edit_caption(caption=
         f"📋 Ваша реферальная ссылка:\n\n"
         f"`{referral_link}`\n\n"
         f"📝 Как использовать:\n"
@@ -120,7 +123,7 @@ async def back_to_referral(callback: CallbackQuery):
         await callback.answer("❌ Пользователь не найден")
         return
     
-    await callback.message.edit_text(
+    await callback.message.edit_caption(caption=
         f"👥 Реферальная программа\n\n"
         f"💎 Зарабатывайте звезды за приглашенных друзей!\n\n"
         f"📊 Ваша статистика:\n"
@@ -150,7 +153,7 @@ async def ref_command(message: Message):
     
     referral_link = f"https://t.me/dicelite_bot?start={user.referral_code}"
     
-    await message.answer(
+    await message.answer_photo(referals_photo,
         f"👥 Реферальная программа\n\n"
         f"Приглашайте друзей и получайте бонусы!\n\n"
         f"📊 Ваша статистика:\n"

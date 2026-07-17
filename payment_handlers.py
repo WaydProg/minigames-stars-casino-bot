@@ -4,6 +4,7 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from config import bot, WITHDRAWAL_CHAT_ID
+from aiogram.types import FSInputFile
 from database import db
 from handlers.payment import send_invoice_handler
 import asyncio
@@ -26,10 +27,18 @@ DEPOSIT_PACKAGES = {
     "500": 500
 }
 
+deposit_photo = FSInputFile("photos/DEPOSIT.png")
+
 @router.message(F.text == "💫 Пополнить")
 async def deposit_command(message: Message):
-    await message.answer(
-        "💫 Выберите способ пополнения:",
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    await message.answer_photo(deposit_photo,
+        caption="💫 Выберите способ пополнения:",
         reply_markup=kb.payment_methods_menu()
     )
 
@@ -97,10 +106,11 @@ async def withdraw_command(message: Message, state: FSMContext):
     )
     await state.set_state(WithdrawalState.waiting_for_amount)
 
-@router.message(WithdrawalState.waiting_for_amount, F.text == "❌ Отмена")
-async def cancel_withdrawal(message: Message, state: FSMContext):
+@router.callback_query(StateFilter(WithdrawalState.waiting_for_amount), F.data == "cancel_keyboard")
+async def cancel_withdrawal(callback:CallbackQuery, state: FSMContext):
     await state.clear()
-    await message.answer("❌ Вывод отменен", reply_markup=kb.main_menu())
+    await callback.answer()
+    await callback.message.answer("❌ Вывод отменен", reply_markup=kb.main_menu())
 
 @router.message(WithdrawalState.waiting_for_amount)
 async def process_withdrawal_amount(message: Message, state: FSMContext):
@@ -273,7 +283,7 @@ async def reject_withdrawal(callback: CallbackQuery):
 
 @router.callback_query(F.data == "pay_method_stars")
 async def select_stars_method(callback: CallbackQuery):
-    await callback.message.edit_text(
+    await callback.message.edit_caption(caption=
         "⭐ Пополнение через Telegram Stars\n\n"
         "Выберите пакет пополнения:",
         reply_markup=kb.deposit_menu()
@@ -282,15 +292,15 @@ async def select_stars_method(callback: CallbackQuery):
 
 @router.callback_query(F.data == "back_to_payment_method")
 async def back_to_payment_method(callback: CallbackQuery):
-    await callback.message.edit_text(
-        "💫 Выберите способ пополнения:",
+    await callback.message.edit_caption(
+        caption="💫 Выберите способ пополнения:",
         reply_markup=kb.payment_methods_menu()
     )
     await callback.answer()
 
 @router.callback_query(F.data == "back_to_main")
 async def back_to_main_from_referral(callback: CallbackQuery):
-    await callback.message.edit_text(
+    await callback.message.edit_caption(caption=
         "Главное меню:",
         reply_markup=kb.payment_methods_menu()
     )

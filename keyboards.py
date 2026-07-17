@@ -6,7 +6,9 @@ from database import db
 def main_menu():
     builder = ReplyKeyboardBuilder()
     builder.row(KeyboardButton(text="🎰 Игры", style=ButtonStyle.SUCCESS))
+    builder.add(KeyboardButton(text="📩 Купить подарок", style=ButtonStyle.SUCCESS))
     builder.add(KeyboardButton(text="⭐ Мой баланс", style=ButtonStyle.PRIMARY))
+    builder.add(KeyboardButton(text="📤 Отправить звезды", style=ButtonStyle.PRIMARY))
     builder.add(KeyboardButton(text="💫 Пополнить", style=ButtonStyle.PRIMARY))
     builder.add(KeyboardButton(text="🎉 Ввести промокод", style=ButtonStyle.DANGER))
     builder.add(KeyboardButton(text="🎁 Ежедневный бонус", style=ButtonStyle.DANGER))
@@ -14,7 +16,7 @@ def main_menu():
     builder.add(KeyboardButton(text="👥 Рефералы")) 
     builder.add(KeyboardButton(text="📊 Статистика"))
     builder.add(KeyboardButton(text="ℹ️ Помощь"))
-    builder.adjust(1, 2)
+    builder.adjust(1, 1, 3, 2)
     return builder.as_markup(resize_keyboard=True)
 
 def back():
@@ -68,14 +70,21 @@ def admin_menu():
 
 def game_settings_menu():
     builder = InlineKeyboardBuilder()
-    games = ['dice', 'dart', 'basketball', 'football', 'bowling', 'slot']
+    games = ['dice', 'dart', 'basketball', 'football', 'bowling', 'slot', 'coin']
+    chatgames = ['dice', 'darts', 'basket', 'football', 'bowling', 'roulette']
     for game in games:
         builder.add(InlineKeyboardButton(
             text=f"⚙️ {game.capitalize()}", 
             callback_data=f"setting_{game}"
         ))
+
+    for game in chatgames:
+        builder.add(InlineKeyboardButton(
+            text=f"⚙️ Chat {game.capitalize()}", 
+            callback_data=f"chatsetting_{game}"
+        ))
     builder.add(InlineKeyboardButton(text="◀️ Назад", callback_data="admin_back"))
-    builder.adjust(2)
+    builder.adjust(2,2,2,1,2)
     return builder.as_markup()
 
 def back_to_admin():
@@ -104,13 +113,17 @@ def withdrawals_menu():
 
 def games_menu():
     builder = InlineKeyboardBuilder()
+    builder.add(InlineKeyboardButton(text='🥇 GOLD бокс | ⭐50', callback_data='box_gold', style='SUCCESS'))
+    builder.add(InlineKeyboardButton(text='🥈 SILVER бокс | ⭐25', callback_data='box_silver', style='SUCCESS'))
+    builder.add(InlineKeyboardButton(text='🥉 BRONZE бокс | ⭐15', callback_data='box_bronze', style='SUCCESS'))
     builder.add(InlineKeyboardButton(text="🎲 Кубик", callback_data="game_dice"))
     builder.add(InlineKeyboardButton(text="🎯 Дартс", callback_data="game_dart"))
     builder.add(InlineKeyboardButton(text="🏀 Баскетбол", callback_data="game_basketball"))
     builder.add(InlineKeyboardButton(text="⚽ Футбол", callback_data="game_football"))
     builder.add(InlineKeyboardButton(text="🎳 Боулинг", callback_data="game_bowling"))
+    builder.add(InlineKeyboardButton(text="🪙 Монетка", callback_data="game_coin", style='SUCCESS'))
     builder.add(InlineKeyboardButton(text="🎰 Рулетка", callback_data="game_slot"))
-    builder.adjust(2)
+    builder.adjust(1,2)
     return builder.as_markup()
 
 def game_action_menu(game_type: str):
@@ -199,10 +212,22 @@ def confirm_mass_message():
     builder.add(InlineKeyboardButton(text="❌ Отмена", callback_data="mass_cancel"))
     return builder.adjust(1).as_markup()
 
+async def adm_list_avaible_gifts(gifts):
+    builder = InlineKeyboardBuilder()
+
+    for gift in gifts:
+        builder.add(InlineKeyboardButton(text=f'{gift.sticker.emoji} | ⭐{gift.star_count}', callback_data=f'admgift_{gift.id}_{gift.star_count}'))
+
+    builder.add(InlineKeyboardButton(text="◀️ Назад", callback_data="admin_back"))
+
+    return builder.adjust(2).as_markup()
+
 async def list_avaible_gifts(gifts):
     builder = InlineKeyboardBuilder()
 
     for gift in gifts:
-        builder.add(InlineKeyboardButton(text=gift.sticker.emoji, callback_data=f'admgift_{gift.id}'))
+        builder.add(InlineKeyboardButton(text=f'{gift.sticker.emoji} | ⭐{gift.star_count}', callback_data=f'usergift_{gift.id}_{gift.star_count}'))
 
-    return builder.adjust(2).as_markup()
+    builder.add(InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_games_list"))
+
+    return builder.adjust(1, 2).as_markup()

@@ -3,6 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.methods import GetAvailableGifts, SendGift
 from config import bot, HISTORY_CHAT_ID, ADMIN_IDS
 from database import db
 import random
@@ -25,7 +26,8 @@ GAME_NAMES = {
     "basketball": "🏀 Баскетбол",
     "football": "⚽ Футбол",
     "bowling": "🎳 Боулинг",
-    "slot": "🎰 Рулетка"
+    "slot": "🎰 Рулетка",
+    "coin": "🪙 Монетка"
 }
 
 # Эмодзи для игр
@@ -35,7 +37,8 @@ GAME_EMOJIS = {
     "basketball": "🏀",
     "football": "⚽",
     "bowling": "🎳",
-    "slot": "🎰"
+    "slot": "🎰",
+    "coin": "🪙"
 }
 
 # Условия победы для каждой игры
@@ -45,7 +48,8 @@ WIN_CONDITIONS = {
     "basketball": "Попадание в корзину (значение 4, 5 или 6)", 
     "football": "Гол! (значение 4 или 5)",
     "bowling": "Страйк! (значение 5 или 6)",
-    "slot": "Выигрыш определяется случайным образом\n🎰 Джекпот при значении 1 (5x множитель)"
+    "slot": "Выигрыш определяется случайным образом\n🎰 Джекпот при значении 1 (5x множитель)",
+    "coin": "Выигрыш определяется случайным образом (на эмодзи всегда выпадает орёл)"
 }
 
 # Победные значения для каждой игры
@@ -55,10 +59,20 @@ WIN_VALUES = {
     "basketball": [4, 5, 6],  # Баскетбол: 4-6 для победы
     "football": [4, 5],       # Футбол: 4-5 для победы
     "bowling": [5, 6],        # Боулинг: 5-6 для победы
-    "slot": []                # Рулетка: особая логика
+    "slot": [],                # Рулетка: особая логика
+    "coin": []
 }
 
-photo = FSInputFile('photos/SuperDice.png')
+games_photo = FSInputFile("photos/games.png")
+statistics_photo = FSInputFile("photos/statistics.png")
+help_photo = FSInputFile("photos/help.png")
+dice_photo = FSInputFile("photos/games/dice.png")
+dart_photo = FSInputFile("photos/games/darts.png")
+basketball_photo = FSInputFile("photos/games/Basketball.png")
+football_photo = FSInputFile("photos/games/Football.png")
+bowling_photo = FSInputFile("photos/games/bowling.png")
+coin_photo = FSInputFile("photos/games/coin.png")
+slot_photo = FSInputFile("photos/games/roulette.png")
 
 async def send_game_history(user_id: int, username: str, first_name: str, game_type: str, 
                            bet_amount: int, win_amount: int, dice_value: int = None):
@@ -413,18 +427,203 @@ async def play_slot(callback: CallbackQuery, setting, bet_amount: int):
             f"💎 Ваш баланс: {user.balance - bet_amount} звезд"
         )
 
+async def play_coin(callback: CallbackQuery, setting, bet_amount: int):
+    await callback.message.answer("🪙")
+    
+    # Получаем текущий баланс пользователя
+    user = await db.get_user(callback.from_user.id)
+    
+    # Проверяем выигрыш по значению кубика
+    if random.random() < setting.win_chance:
+        win_amount = int(bet_amount * setting.win_multiplier)
+        new_balance = await db.update_balance(
+            callback.from_user.id, win_amount, "win", f"Выигрыш в coin"
+        )
+        await db.update_game_stat(
+            callback.from_user.id, "coin", bet_amount, win_amount
+        )
+        
+        # Отправляем историю в чат
+        await send_game_history(
+            callback.from_user.id,
+            callback.from_user.username,
+            callback.from_user.first_name,
+            "coin",
+            bet_amount,
+            win_amount
+        )
+        
+        await callback.message.answer(
+            f"🎉 Поздравляем! Вы выиграли {win_amount} звезд!\n"
+            f"💎 Ваш баланс: {new_balance} звезд"
+        )
+    else:
+        await db.update_game_stat(callback.from_user.id, "coin", bet_amount, 0)
+        
+        # Отправляем историю в чат
+        await send_game_history(
+            callback.from_user.id,
+            callback.from_user.username,
+            callback.from_user.first_name,
+            "coin",
+            bet_amount,
+            0
+        )
+        
+        await callback.message.answer(
+            f"😢 К сожалению вы проиграли в этот раз, попробуйте еще, вдруг повезет\n"
+            f"💎 Ваш баланс: {user.balance} звезд"
+        )
+
 @router.message(F.text == "🎰 Игры")
 async def show_games(message: Message):
-    await message.answer_photo(photo, caption="🎮 Выберите игру:", reply_markup=kb.games_menu())
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    await message.answer_photo(games_photo, caption="🎮 Выберите игру:", reply_markup=kb.games_menu())
 
 @router.callback_query(F.data == 'back_to_games_list')
 async def show_games2(callback:CallbackQuery, state:FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     await state.clear()
-    await callback.message.answer_photo(photo, caption="🎮 Выберите игру:", reply_markup=kb.games_menu())
+    await callback.message.answer_photo(games_photo, caption="🎮 Выберите игру:", reply_markup=kb.games_menu())
     await callback.answer()
+
+@router.callback_query(F.data.startswith('box_'))
+async def boxes(callback:CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    data = callback.data.split('_')[1]
+    gifts = await bot(GetAvailableGifts())
+
+    if data == 'gold':
+
+        if user.balance < 90:
+            await callback.answer('❌ Недостаточно звезд на балансе')
+            return
+        
+        if random.random() < 0.1:
+            gift_ids = [gift.id for gift in gifts.gifts if int(gift.star_count) >= 100]
+
+            if gift_ids:
+                await db.update_balance(callback.from_user.id, -90, 'bet', 'Оплата за бокс GOLD')
+
+                try:
+                    await bot.send_gift(
+                        user_id=int(callback.from_user.id),
+                        gift_id=str(gift_ids[random.randint(0, len(gift_ids) - 1)])
+                    )
+                except Exception as e:
+                    await db.update_balance(callback.from_user.id, 90, 'refund', 'Возврат за ошибку отправки')
+                    await callback.answer(f'❌ Ошибка отправки подарка. Средства возвращены. Ошибка: {e}', show_alert=True)
+                await callback.answer('🎉 Подарок уже отправлен вам на аккаунт!')
+            else:
+                await boxes(callback)
+        else:
+            gift_ids = [gift.id for gift in gifts.gifts if int(gift.star_count) < 100]
+
+            if gift_ids:
+                await db.update_balance(callback.from_user.id, -90, 'bet', 'Оплата за бокс GOLD')
+
+                try:
+                    await bot.send_gift(
+                        user_id=int(callback.from_user.id),
+                        gift_id=str(gift_ids[random.randint(0, len(gift_ids) - 1)])
+                    )
+                except Exception as e:
+                    await db.update_balance(callback.from_user.id, 90, 'refund', 'Возврат за ошибку отправки')
+                    await callback.answer(f'❌ Ошибка отправки подарка. Средства возвращены. Ошибка: {e}', show_alert=True)
+
+                await callback.answer('🎉 Подарок уже отправлен вам на аккаунт!')
+            else:
+                await boxes(callback)
+
+    if data == 'silver':
+        if user.balance < 25:
+            await callback.answer('❌ Недостаточно звезд на балансе')
+            return
+        
+        if random.random() < 0.1:
+            gift_ids = [gift.id for gift in gifts.gifts if int(gift.star_count) == 50]
+
+            if gift_ids:
+                await db.update_balance(callback.from_user.id, -25, 'bet', 'Оплата за бокс GOLD')
+
+                try:
+                    await bot.send_gift(
+                        user_id=int(callback.from_user.id),
+                        gift_id=str(gift_ids[random.randint(0, len(gift_ids) - 1)])
+                    )
+                except Exception as e:
+                    await db.update_balance(callback.from_user.id, 25, 'refund', 'Возврат за ошибку отправки')
+                    await callback.answer(f'❌ Ошибка отправки подарка. Средства возвращены. Ошибка: {e}', show_alert=True)
+
+                await callback.answer('🎉 Подарок уже отправлен вам на аккаунт!')
+            else:
+                await boxes(callback)
+        else:
+            gift_ids = [gift.id for gift in gifts.gifts if int(gift.star_count) < 50]
+
+            if gift_ids:
+                await db.update_balance(callback.from_user.id, -25, 'bet', 'Оплата за бокс GOLD')
+
+                try:
+                    await bot.send_gift(
+                        user_id=int(callback.from_user.id),
+                        gift_id=str(gift_ids[random.randint(0, len(gift_ids) - 1)])
+                    )
+                except Exception as e:
+                    await db.update_balance(callback.from_user.id, 25, 'refund', 'Возврат за ошибку отправки')
+                    await callback.answer(f'❌ Ошибка отправки подарка. Средства возвращены. Ошибка: {e}', show_alert=True)
+
+                await callback.answer('🎉 Подарок уже отправлен вам на аккаунт!')
+            else:
+                await boxes(callback)
+
+    if data == 'bronze':
+        if user.balance < 15:
+            await callback.answer('❌ Недостаточно звезд на балансе')
+            return
+
+        gift_ids = [gift.id for gift in gifts.gifts if int(gift.star_count) == 15]
+        if gift_ids:
+            await db.update_balance(callback.from_user.id, -15, 'bet', 'Оплата за бокс GOLD')
+            try:
+                await bot.send_gift(
+                    user_id=int(callback.from_user.id),
+                    gift_id=str(gift_ids[random.randint(0, len(gift_ids) - 1)])
+                )
+                await callback.answer('🎉 Подарок уже отправлен вам на аккаунт!')
+            except Exception as e:
+                await db.update_balance(callback.from_user.id, 15, 'refund', 'Возврат за ошибку отправки')
+                await callback.answer(f'❌ Ошибка отправки подарка. Средства возвращены. Ошибка: {e}', show_alert=True)
+            await callback.answer('🎉 Подарок уже отправлен вам на аккаунт!')
+        else:
+            await callback.message.answer('❌ Нет доступных подарков, попробуйте позже')
 
 @router.callback_query(F.data.startswith("game_") or F.data == "back_to_games")
 async def select_game(callback: CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     game_type = callback.data.split("_")[1]
     user_id = callback.from_user.id
     
@@ -460,26 +659,36 @@ async def select_game(callback: CallbackQuery):
 """
 
     if game_type == 'dice':
-        await callback.message.answer_photo(photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
+        await callback.message.answer_photo(dice_photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
         await callback.answer()
     elif game_type == 'dart':
-        await callback.message.answer_photo(photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
+        await callback.message.answer_photo(dart_photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
         await callback.answer()
     elif game_type == 'basketball':
-        await callback.message.answer_photo(photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
+        await callback.message.answer_photo(basketball_photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
         await callback.answer()
     elif game_type == 'football':
-        await callback.message.answer_photo(photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
+        await callback.message.answer_photo(football_photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
         await callback.answer()
     elif game_type == 'bowling':
-        await callback.message.answer_photo(photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
+        await callback.message.answer_photo(bowling_photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
         await callback.answer()
     elif game_type == 'slot':
-        await callback.message.answer_photo(photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
+        await callback.message.answer_photo(slot_photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
+        await callback.answer()
+    elif game_type == 'coin':
+        await callback.message.answer_photo(coin_photo, caption=game_info, reply_markup=kb.game_action_menu(game_type))
         await callback.answer()
 
 @router.callback_query(F.data.startswith("play_"))
 async def play_game(callback: CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+
     game_type = callback.data.split("_")[1]
     user_id = callback.from_user.id
     
@@ -516,6 +725,8 @@ async def play_game(callback: CallbackQuery):
         await play_bowling(callback, setting, bet_amount)
     elif game_type == "slot":
         await play_slot(callback, setting, bet_amount)
+    elif game_type == "coin":
+        await play_coin(callback, setting, bet_amount)
     
     # Показываем кнопку "Назад к игре"
     await callback.message.answer(
@@ -527,6 +738,13 @@ async def play_game(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("bet_"))
 async def start_change_bet(callback: CallbackQuery, state: FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     game_type = callback.data.split("_")[1]
     
     # Получаем настройки игры
@@ -551,6 +769,13 @@ async def start_change_bet(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(StateFilter(BetState.waiting_for_bet), F.data == "cancel_keyboard")
 async def cancel_bet_change(callback:CallbackQuery, state: FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     data = await state.get_data()
     game_type = data.get('game_type', 'dice')
     await state.clear()
@@ -562,6 +787,13 @@ async def cancel_bet_change(callback:CallbackQuery, state: FSMContext):
 
 @router.message(StateFilter(BetState.waiting_for_bet))
 async def process_bet_amount(message: Message, state: FSMContext):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     try:
         bet_amount = int(message.text)
         data = await state.get_data()
@@ -602,6 +834,11 @@ async def process_bet_amount(message: Message, state: FSMContext):
 @router.message(F.text == "📊 Статистика")
 async def show_stats(message: Message):
     user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if user:
         win_rate = (user.total_wins / user.total_bets * 100) if user.total_bets > 0 else 0
         stats_text = f"""
@@ -611,10 +848,16 @@ async def show_stats(message: Message):
 📈 Win rate: {win_rate:.1f}%
 💎 Баланс: {user.balance} звезд
 """
-        await message.answer(stats_text)
+        await message.answer_photo(statistics_photo, caption=stats_text)
 
 @router.message(F.text == "ℹ️ Помощь")
 async def show_help(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     help_text = """
 🎰 Правила:
 
@@ -638,11 +881,17 @@ async def show_help(message: Message):
 
 🎯 Удачи в играх!
 """
-    await message.answer(help_text)
+    await message.answer_photo(help_photo, caption=help_text)
 
 @router.message(Command("history"))
 async def show_recent_history(message: Message):
-    """Показать последние игры (только для админов)"""
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+
     if message.from_user.id not in ADMIN_IDS:  # Замените на ваш ID администратора
         await message.answer("❌ Доступ запрещен")
         return

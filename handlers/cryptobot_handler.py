@@ -73,7 +73,7 @@ async def check_cryptobot_invoice(invoice_id: str):
 
 @router.callback_query(F.data == "pay_method_cryptobot")
 async def select_cryptobot_method(callback: CallbackQuery):
-    await callback.message.edit_text(
+    await callback.message.edit_caption(caption=
         "💎 Пополнение через Cryptobot (TON)\n\n"
         "Выберите пакет пополнения:\n"
         "• 25 звезд = 0.125 TON\n"  # Добавлена строка
@@ -102,7 +102,7 @@ async def process_cryptobot_package(callback: CallbackQuery):
     invoice = await create_cryptobot_invoice(amount_ton, callback.from_user.id)
     
     if not invoice:
-        await callback.message.edit_text(
+        await callback.message.edit_caption(caption=
             "❌ Ошибка при создании платежа\n\n"
             "Попробуйте позже или выберите другой способ оплаты",
             reply_markup=kb.payment_methods_menu()
@@ -117,7 +117,7 @@ async def process_cryptobot_package(callback: CallbackQuery):
         invoice["invoice_id"]
     )
     
-    await callback.message.edit_text(
+    await callback.message.edit_caption(caption=
         f"💎 Пополнение на {amount_stars} звезд\n\n"
         f"💰 Сумма к оплате: {amount_ton} TON\n"
         f"⏰ Время на оплату: 30 минут\n\n"
@@ -154,7 +154,7 @@ async def check_crypto_payment(callback: CallbackQuery):
         # Обновляем статус платежа
         await db.update_cryptobot_payment(payment.id, "paid")
         
-        await callback.message.edit_text(
+        await callback.message.edit_caption(caption=
             f"✅ Оплата подтверждена!\n\n"
             f"💎 Зачислено: {payment.amount_stars} звезд\n"
             f"📊 Новый баланс: {new_balance} звезд\n\n"
@@ -162,7 +162,7 @@ async def check_crypto_payment(callback: CallbackQuery):
         )
     elif invoice["status"] == "expired":
         await db.update_cryptobot_payment(payment.id, "expired")
-        await callback.message.edit_text(
+        await callback.message.edit_caption(caption=
             "❌ Время оплаты истекло\n\n"
             "Создайте новый платеж",
             reply_markup=kb.payment_methods_menu()
@@ -174,7 +174,7 @@ async def check_crypto_payment(callback: CallbackQuery):
 
 @router.callback_query(F.data == "cancel_crypto_payment")
 async def cancel_crypto_payment(callback: CallbackQuery):
-    await callback.message.edit_text(
+    await callback.message.edit_caption(caption=
         "❌ Платеж отменен\n\n"
         "Выберите способ оплаты:",
         reply_markup=kb.payment_methods_menu()

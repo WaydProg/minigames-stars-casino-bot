@@ -1,7 +1,7 @@
 import asyncio
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from config import ADMIN_IDS
 from database import db
 from sqlalchemy import select
@@ -16,6 +16,12 @@ router = Router()
 
 @router.message(Command("admin"))
 async def admin_panel(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         await message.answer("❌ Доступ запрещен")
         return
@@ -24,6 +30,12 @@ async def admin_panel(message: Message):
 
 @router.message(Command("settings"))
 async def show_current_settings(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -47,6 +59,13 @@ async def show_current_settings(message: Message):
 
 @router.callback_query(F.data == "admin_settings")
 async def game_settings(callback: CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -57,6 +76,13 @@ async def game_settings(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("setting_"))
 async def edit_game_setting(callback: CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -90,8 +116,49 @@ async def edit_game_setting(callback: CallbackQuery):
 """
     await callback.message.edit_text(text, reply_markup=kb.back_to_admin())
 
+@router.callback_query(F.data.startswith("chatsetting_"))
+async def edit_game_setting(callback: CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    
+    game_type = callback.data.split("_")[1]
+    setting = await db.get_chat_game_setting(game_type)
+    
+    if not setting:
+        await callback.answer("❌ Настройки для этой игры не найдены")
+        return
+    
+    text = f"""
+⚙️ Настройки {game_type.upper()}:
+
+🎯 Комиссия: {setting.commission}%
+
+🔒 Статус: {'✅ Активна' if setting.is_active else '❌ Неактивна'}
+
+📝 Команды для изменения:
+
+/commission_{game_type} [число] - изменить комиссию
+/toggle_{game_type} - включить/выключить игру
+
+Пример: /commission_dice 10
+"""
+    await callback.message.edit_text(text, reply_markup=kb.back_to_admin())
+
 @router.message(F.text.startswith("/chance_"))
 async def change_chance(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -110,6 +177,12 @@ async def change_chance(message: Message):
 
 @router.message(F.text.startswith("/cost_"))
 async def change_cost(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -128,6 +201,12 @@ async def change_cost(message: Message):
 
 @router.message(F.text.startswith("/multiplier_"))
 async def change_multiplier(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -144,8 +223,38 @@ async def change_multiplier(message: Message):
     except (IndexError, ValueError):
         await message.answer("❌ Неверный формат команды. Используйте: /multiplier_[игра] [число]")
 
+@router.message(F.text.startswith("/commission_"))
+async def change_commission(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    try:
+        parts = message.text.split()
+        game_type = parts[0].split("_")[1]
+        commission = int(parts[1])
+        
+        if commission > 0:
+            await db.update_chat_game_setting(game_type, commission=commission)
+            await message.answer(f"✅ Комиссия для {game_type} изменена на {commission}%")
+        else:
+            await message.answer("❌ Комиссия должна быть положительным")
+    except (IndexError, ValueError):
+        await message.answer("❌ Неверный формат команды. Используйте: /commission_[игра] [число]")
+
 @router.message(F.text.startswith("/minbet_"))
 async def change_min_bet(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -164,6 +273,12 @@ async def change_min_bet(message: Message):
 
 @router.message(F.text.startswith("/maxbet_"))
 async def change_max_bet(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -182,6 +297,12 @@ async def change_max_bet(message: Message):
 
 @router.message(F.text.startswith("/toggle_"))
 async def toggle_game(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -200,6 +321,13 @@ async def toggle_game(message: Message):
 
 @router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -228,6 +356,13 @@ async def admin_stats(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_users")
 async def admin_users(callback: CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -255,6 +390,13 @@ async def admin_users(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_add_stars")
 async def admin_add_stars(callback: CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -275,6 +417,12 @@ async def admin_add_stars(callback: CallbackQuery):
 
 @router.message(F.text.startswith("/addstars"))
 async def add_stars_to_user(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -297,6 +445,12 @@ async def add_stars_to_user(message: Message):
 
 @router.message(F.text.startswith("/removestars"))
 async def remove_stars_from_user(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -320,6 +474,12 @@ async def remove_stars_from_user(message: Message):
 
 @router.message(F.text.startswith("/setbalance"))
 async def set_user_balance(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -345,6 +505,12 @@ async def set_user_balance(message: Message):
 
 @router.message(Command("games_history"))
 async def show_games_history(message: Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -380,6 +546,13 @@ async def show_games_history(message: Message):
 
 @router.callback_query(F.data == 'admin_add_promocode')
 async def admin_add_promocode(callback:CallbackQuery, state:FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("❌ Доступ запрещен")
         return
@@ -391,6 +564,12 @@ async def admin_add_promocode(callback:CallbackQuery, state:FSMContext):
 
 @router.message(states.AddPromocode.name, F.text)
 async def proces_add_promo_name(message:Message, state:FSMContext):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
 
@@ -402,6 +581,12 @@ async def proces_add_promo_name(message:Message, state:FSMContext):
 
 @router.message(states.AddPromocode.code, F.text)
 async def proces_add_promo_code(message:Message, state:FSMContext):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -413,6 +598,12 @@ async def proces_add_promo_code(message:Message, state:FSMContext):
 
 @router.message(states.AddPromocode.reward, F.text)
 async def proces_add_promo_reward(message:Message, state:FSMContext):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -430,6 +621,12 @@ async def proces_add_promo_reward(message:Message, state:FSMContext):
 
 @router.message(states.AddPromocode.avaible_until, F.text)
 async def proces_add_promo_avaible_until(message:Message, state:FSMContext):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -453,6 +650,13 @@ async def proces_add_promo_avaible_until(message:Message, state:FSMContext):
 
 @router.callback_query(states.AddPromocode.approve, F.data.startswith('promo_'))
 async def complete_promo(callback:CallbackQuery, state:FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -482,6 +686,13 @@ async def complete_promo(callback:CallbackQuery, state:FSMContext):
 
 @router.callback_query(F.data == 'admin_promocodes')
 async def show_promocodes(callback:CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -490,6 +701,13 @@ async def show_promocodes(callback:CallbackQuery):
 
 @router.callback_query(F.data.startswith('code_'))
 async def code_info(callback:CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -508,6 +726,13 @@ async def code_info(callback:CallbackQuery):
     
 @router.callback_query(F.data.startswith('action_'))
 async def actions_coddes(callback:CallbackQuery):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -538,14 +763,29 @@ async def actions_coddes(callback:CallbackQuery):
         await admin_back(callback)
 
 @router.callback_query(F.data == "admin_back")
-async def admin_back(callback: CallbackQuery):
+async def admin_back(callback: CallbackQuery, state:FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
+    await state.clear()
     await callback.message.edit_text("👨‍💻 Панель администратора:", reply_markup=kb.admin_menu())
 
 @router.callback_query(F.data == 'mass_message')
 async def mass_message(callback: CallbackQuery, state: FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -555,6 +795,12 @@ async def mass_message(callback: CallbackQuery, state: FSMContext):
 
 @router.message(states.MassMessage.message, F.text)
 async def process_mass_message_text(message: Message, state: FSMContext):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -563,6 +809,12 @@ async def process_mass_message_text(message: Message, state: FSMContext):
 
 @router.message(states.MassMessage.message, F.photo)
 async def process_mass_message_photo(message: Message, state: FSMContext):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if message.from_user.id not in ADMIN_IDS:
         return
     
@@ -599,6 +851,13 @@ async def show_mass_preview(message: Message, state: FSMContext):
 
 @router.callback_query(states.MassMessage.confirm, F.data.in_(["mass_approve", "mass_cancel"]))
 async def process_mass_message_confirm(callback: CallbackQuery, state: FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
     if callback.from_user.id not in ADMIN_IDS:
         return
     
@@ -661,28 +920,66 @@ async def process_mass_message_confirm(callback: CallbackQuery, state: FSMContex
 
 @router.callback_query(F.data == 'send_gift')
 async def send_gift_username(callback:CallbackQuery, state:FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+
     await callback.answer()
-    await callback.message.answer('👇 Введите @username пользователя')
+    await callback.message.answer('👇 Введите @username пользователя', reply_markup=kb.back_to_admin())
 
-    await state.set_state(states.SendGift.username)
+    await state.set_state(states.AdmSendGift.username)
 
-@router.message(states.SendGift.username, F.text)
+@router.message(states.AdmSendGift.username, F.text)
 async def send_gift_text(message:Message, state:FSMContext):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
     await state.update_data(username=message.text[1:])
 
-    await message.answer('👇 Введите комментарий к подарку (или "-")')
+    await message.answer('👇 Введите комментарий к подарку (или "-")', reply_markup=kb.back_to_admin())
 
-    await state.set_state(states.SendGift.msg)
+    await state.set_state(states.AdmSendGift.msg)
 
-@router.message(states.SendGift.msg, F.text)
+@router.message(states.AdmSendGift.msg, F.text)
 async def proces_send_gift(message:Message, state:FSMContext):
-    await state.update_data(text = (message.text if message.text != '-' else None))
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    await state.update_data(msg = (message.text if message.text != '-' else None))
     gifts = await bot(GetAvailableGifts())
 
-    await message.answer('👇 Выберите подарок для отправки', reply_markup= await kb.list_avaible_gifts(gifts.gifts))
+    await message.answer('👇 Выберите подарок для отправки', reply_markup= await kb.adm_list_avaible_gifts(gifts.gifts))
 
 @router.callback_query(F.data.startswith('admgift_'))
 async def send_gift_from_user(callback:CallbackQuery, state:FSMContext):
+    user = await db.get_user(callback.from_user.id)
+
+    if user.banned:
+        await callback.answer()
+        await callback.message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+    
     gift_id = callback.data.split('_')[1]
 
     data = await state.get_data()
@@ -705,3 +1002,63 @@ async def send_gift_from_user(callback:CallbackQuery, state:FSMContext):
 
     except Exception as e:
         await callback.message.answer(f'❌ Ошибка отправки подарка: {e}')
+
+@router.message(Command('ban'))
+async def ban_user(message:Message, command:CommandObject):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    args = command.args.strip() if command.args else None
+    if not args:
+        await message.answer("❌ Укажите username после команды. Пример: /ban @username")
+        return
+
+    user = await db.get_user_by_username(args.lstrip('@'))
+    if user:
+        if message.from_user.id == user.user_id:
+            await message.answer("❌ Нельзя забанить себя")
+            return
+        
+        try:
+            await db.update_user_banned(user.user_id, 1)
+            await message.answer(f'✅ Пользователь {args} успешно забанен!')
+        except ValueError as e:
+            await message.answer(f'❌ Не удалось забанить пользователя: {e}')
+    else:
+        await message.answer('❌ Пользователь не зарегистрирован')
+
+@router.message(Command('unban'))
+async def unban_user(message:Message, command:CommandObject):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+    
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    args = command.args.strip() if command.args else None
+    if not args:
+        await message.answer("❌ Укажите username после команды. Пример: /unban @username")
+        return
+
+    user = await db.get_user_by_username(args.lstrip('@'))
+    if user:
+        if message.from_user.id == user.user_id:
+            await message.answer("❌ Нельзя разбанить себя")
+            return
+        
+        try:
+            await db.update_user_banned(user.user_id, 0)
+            await message.answer(f'✅ Пользователь {args} успешно разбанен!')
+        except ValueError as e:
+            await message.answer(f'❌ Не удалось разбанить пользователя: {e}')
+    else:
+        await message.answer('❌ Пользователь не зарегистрирован')

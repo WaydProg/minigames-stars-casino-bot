@@ -17,3 +17,12 @@ class MassMessage(StatesGroup):
 class SendGift(StatesGroup):
     username = State()
     msg = State()
+
+class AdmSendGift(StatesGroup):
+    username = State()
+    msg = State()
+
+class SendStars(StatesGroup):
+    username = State()
+    msg = State()
+    count = State()

@@ -56,6 +56,12 @@ async def send_game_history(username_creator: str, first_name_creator: str, user
 
 @router.message(Command('help'))
 async def help(message: types.Message):
+    user = await db.get_user(message.from_user.id)
+
+    if user.banned:
+        await message.answer('❌ Доступ запрещен, вы забанены в данном боте')
+        return
+
     if message.chat.type not in ["group", "supergroup"]:
         return
     
@@ -96,6 +102,10 @@ async def play_dice(message: types.Message):
     creator_info = await db.get_user_by_username(creator.split('@')[1])
     invited_info = await db.get_user_by_username(invited.split('@')[1])
 
+    if creator_info.banned or invited_info.banned:
+        await message.answer('❌ Доступ запрещен, один из участников забанен в боте')
+        return
+
     if creator_info.user_id == invited_info.user_id:
         await message.answer('❌ Вы не можете создать игру с самим собой')
         return
@@ -133,6 +143,10 @@ async def play_dice(message: types.Message):
 
     creator_info = await db.get_user_by_username(creator.split('@')[1])
     invited_info = await db.get_user_by_username(invited.split('@')[1])
+
+    if creator_info.banned or invited_info.banned:
+        await message.answer('❌ Доступ запрещен, один из участников забанен в боте')
+        return
 
     if creator_info.user_id == invited_info.user_id:
         await message.answer('❌ Вы не можете создать игру с самим собой')
@@ -172,6 +186,10 @@ async def play_dice(message: types.Message):
     creator_info = await db.get_user_by_username(creator.split('@')[1])
     invited_info = await db.get_user_by_username(invited.split('@')[1])
 
+    if creator_info.banned or invited_info.banned:
+        await message.answer('❌ Доступ запрещен, один из участников забанен в боте')
+        return
+
     if creator_info.user_id == invited_info.user_id:
         await message.answer('❌ Вы не можете создать игру с самим собой')
         return
@@ -209,6 +227,10 @@ async def play_dice(message: types.Message):
 
     creator_info = await db.get_user_by_username(creator.split('@')[1])
     invited_info = await db.get_user_by_username(invited.split('@')[1])
+
+    if creator_info.banned or invited_info.banned:
+        await message.answer('❌ Доступ запрещен, один из участников забанен в боте')
+        return
 
     if creator_info.user_id == invited_info.user_id:
         await message.answer('❌ Вы не можете создать игру с самим собой')
@@ -249,6 +271,10 @@ async def play_dice(message: types.Message):
     creator_info = await db.get_user_by_username(creator.split('@')[1])
     invited_info = await db.get_user_by_username(invited.split('@')[1])
 
+    if creator_info.banned or invited_info.banned:
+        await message.answer('❌ Доступ запрещен, один из участников забанен в боте')
+        return
+
     if creator_info.user_id == invited_info.user_id:
         await message.answer('❌ Вы не можете создать игру с самим собой')
         return
@@ -286,6 +312,10 @@ async def play_dice(message: types.Message):
 
     creator_info = await db.get_user_by_username(creator.split('@')[1])
     invited_info = await db.get_user_by_username(invited.split('@')[1])
+
+    if creator_info.banned or invited_info.banned:
+        await message.answer('❌ Доступ запрещен, один из участников забанен в боте')
+        return
 
     if creator_info.user_id == invited_info.user_id:
         await message.answer('❌ Вы не можете создать игру с самим собой')
@@ -326,6 +356,10 @@ async def start_game_chat(callback: types.CallbackQuery):
 
     creator_info = await db.get_user(game_info.creator)
     invited_info = await db.get_user(game_info.invited)
+
+    if creator_info.banned or invited_info.banned:
+        await message.answer('❌ Доступ запрещен, один из участников забанен в боте')
+        return
 
     if type == 'start':
 
@@ -488,6 +522,8 @@ async def start_game_chat(callback: types.CallbackQuery):
 
         winner = ''
 
+        setting = await db.get_chat_game_setting(game_info.game)
+
         if value_first == value_second:
             winner = 'Ничья'
             await callback.message.answer('😌 Сегодня без победителя. Средства возвращены.')
@@ -497,12 +533,12 @@ async def start_game_chat(callback: types.CallbackQuery):
         if value_first > value_second:
             winner = creator_info.username
             await callback.message.answer(f'✅ Победитель: @{creator_info.username}. Выигрыш начислен. Сыграем ещё?')
-            await db.add_stars_to_user_by_userid(creator_info.user_id, game_info.price*2, 'win', 'Победа в чате')
+            await db.add_stars_to_user_by_userid(creator_info.user_id, (game_info.price*2)* (1 - setting.commission / 100), 'win', 'Победа в чате')
 
         if value_first < value_second:
             winner = invited_info.username
             await callback.message.answer(f'✅ Победитель: @{invited_info.username}. Выигрыш начислен. Сыграем ещё?')
-            await db.add_stars_to_user_by_userid(invited_info.user_id, game_info.price*2, 'win', 'Победа в чате')
+            await db.add_stars_to_user_by_userid(invited_info.user_id, (game_info.price*2)* (1 - setting.commission / 100), 'win', 'Победа в чате')
 
 
         try:

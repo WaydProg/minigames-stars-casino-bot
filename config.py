@@ -24,6 +24,7 @@ GAME_SETTINGS = {
     "football_win_chance": 0.4,
     "bowling_win_chance": 0.4,
     "slot_win_chance": 0.3,
+    "coin_win_chance": 0.4,
     "min_bet": 1,
     "max_bet": 1000
 }
@@ -34,7 +35,8 @@ GAME_COSTS = {
     "basketball": 5, 
     "football": 5, 
     "bowling": 5, 
-    "slot": 10
+    "slot": 10,
+    "coin": 5
 }
 
 WIN_MULTIPLIERS = {
@@ -42,7 +44,8 @@ WIN_MULTIPLIERS = {
     "dart": 2.5, 
     "basketball": 2.5, 
     "football": 2.5, 
-    "bowling": 2.5, 
+    "bowling": 2.5,
+    "coin": 2.5, 
     "slot": 3.5
 }
 
