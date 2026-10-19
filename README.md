@@ -140,6 +140,6 @@ WITHDRAWAL_CHAT_ID1 =
 
 📬 Контакты
 
-Telegram: [для связи](https://t.me/CTPAX_MYC0P0B)
+Портфоли: [для связи](https://waydprog-portfolio.web.app/)
 
 Удачи в играх и не забывайте об ответственности! 🍀
