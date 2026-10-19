@@ -140,6 +140,6 @@ WITHDRAWAL_CHAT_ID1 =
 
 📬 Контакты
 
-Портфоли: [для связи](https://waydprog-portfolio.web.app/)
+Портфолио: [для связи](https://waydprog-portfolio.web.app/)
 
 Удачи в играх и не забывайте об ответственности! 🍀
