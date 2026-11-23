@@ -6,10 +6,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv('BOT_TOKEN1')
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 PAYMENT_PROVIDER_TOKEN = os.getenv('PAYMENT_PROVIDER_TOKEN1')
 CRYPTOBOT_TOKEN = os.getenv('CRYPTOBOT_TOKEN1')
-ADMIN_IDS = [1473795067, 5145429773, 6446981309]
+ADMIN_IDS = [int(value) for value in os.getenv("ADMIN_IDS", "").split(",") if value.strip()]
 HISTORY_CHAT_ID = os.getenv('HISTORY_CHAT_ID1')
 WITHDRAWAL_CHAT_ID = os.getenv('WITHDRAWAL_CHAT_ID1')
 
